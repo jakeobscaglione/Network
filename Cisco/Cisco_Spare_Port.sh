@@ -1,34 +1,47 @@
 #!/bin/bash
 
-# Device Login information
-DEVICE="10.0.0.99"
+# List of switches to configure
+SWITCHES=(
+  "10.0.0.11"
+  "10.0.0.12"
+  "10.0.0.99"
+)
+
 USER="admin"
 PASSWORD="admin"
 
-# Begin SSH login string. All options are due to old code train on the 3850.   
-sshpass -p "$PASSWORD"	ssh $USER@$DEVICE << EOF \
-	-o kexalgorithms=diffie-hellman-group-exchange-sha1 \
-	-o hostkeyalgorithms=ssh-rsa \
-	-o MACs=hmac-sha1-96 \
+# Port range to apply spare config
+START=1
+END=24
+BASE="GigabitEthernet1/0"
 
-# Begin Cisco configuration and create shutdown vlan, spare port template, and apply to a range of interfaces.
+for SWITCH in "${SWITCHES[@]}"; do
+  echo "Configuring spare ports on $SWITCH..."
+
+  sshpass -p "$PASSWORD" ssh $USER@$SWITCH << EOF
+$PASSWORD
 configure terminal
-
-vlan 999
+vlan 4094
+state suspend
 name SPARE
-shutdown
-exit
 
 template SPARE_PORT
 switchport mode access
-switchport access vlan 999
-spanning-tree guard root
-spanning-tree bpduguard enable
+switchport access vlan 4094
 spanning-tree portfast
+spanning-tree bpduguard enable
+spanning-tree guard root 
 
-interface range GigabitEthernet1/0/1-47
-description SPARE
-source template SPARE_PORT
-shutdown
-
+$(for i in $(seq $START $END); do
+    echo "interface $BASE/$i"
+    echo "description SPARE"
+    echo "source template SPARE_PORT"
+    echo "shutdown"
+done)
+end
+write memory
 EOF
+
+  echo "Done with $SW"
+done
+
