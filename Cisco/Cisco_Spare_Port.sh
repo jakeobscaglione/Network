@@ -42,6 +42,6 @@ end
 write memory
 EOF
 
-  echo "Done with $SW"
+  echo "Done with $SWITCH"
 done
 
